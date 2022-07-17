@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>canvas button</title>
+	<style>
+		html, body
+		{
+			height: 100%;
+			width: 100%;
+			margin: 0;
+			background: #126a93;
+		}
+
+		body
+		{
+			display: grid;
+			place-items: center;
+		}
+
+		.cursor-pointer
+		{
+			cursor: pointer;
+		}
+	</style>
+</head>
+<body>
+	<canvas id="canvas"></canvas>
+	<script>
+		const canvas = document.getElementById('canvas');
+		if (!canvas)
+		{
+			throw Error('No canvas');
+		}
+		else if (!(canvas instanceof HTMLCanvasElement))
+		{
+			throw Error('Not a canvas');
+		}
+
+		const ctx = canvas.getContext('2d');
+		if (!ctx)
+		{
+			throw Error('No context');
+		}
+
+		const {width: w} = ctx.canvas.getBoundingClientRect();
+		const h = w;
+		ctx.canvas.width = w;
+		ctx.canvas.height = h;
+
+		const btn = {
+			x: 0.1 * w,
+			y: 0.4 * h,
+			w: 0.8 * w,
+			h: 0.2 * h,
+		};
+
+		const mouse = {
+			x: -1,
+			y: -1
+		};
+
+		const state = {
+			mouseover: false,
+			mousedown: false,
+			textSize: 16,
+			btnText: `THIS BUTTON DOES NOTHING`
+		};
+
+		canvas.addEventListener('mousemove', onMouseMove);
+
+		function onMouseMove(event)
+		{
+			mouse.x = event.clientX - canvas.offsetLeft;
+			mouse.y = event.clientY - canvas.offsetTop;
+		}
+
+		canvas.addEventListener('mouseleave', onMouseLeave);
+
+		function onMouseLeave(event)
+		{
+			mouse.x = -1;
+			mouse.y = -1;
+		}
+
+		canvas.addEventListener('mousedown', onMouseDown);
+
+		function onMouseDown(event)
+		{
+			if (btnHover())
+			{
+				state.mousedown = true;
+			}
+		}
+
+		canvas.addEventListener('mouseup', onMouseUp);
+
+		function onMouseUp(event)
+		{
+			if (state.mousedown)
+			{
+				state.mousedown = false;
+
+				for (let i = 0; i < 50; i += 1)
+				{
+					addParticle(
+						(btn.x + btn.w * 0.5) / w,
+						(h - (btn.y + btn.h * 0.5)) / h );
+				}
+			}
+		}
+
+		function checkMouseIntersect()
+		{
+			if (mouse.x >= btn.x && mouse.x <= btn.x + btn.w && mouse.y >= btn.y && mouse.y <= btn.y + btn.h)
+			{
+				if (!state.mouseover)
+				{
+					state.mouseover = true;
+					canvas.classList.add(`cursor-pointer`);
+				}
+			}
+			else if (state.mouseover)
+			{
+				state.mouseover = false;
+				canvas.classList.remove(`cursor-pointer`);
+
+				if (state.mousedown)
+				{
+					state.mousedown = false;
+				}
+			}
+		}
+
+		function pPosition()
+		{
+			return -1 * Math.round(Math.random() * 100);
+		}
+
+		const rain = Array(30).fill(0).map(pPosition);
+
+		ctx.font = `${state.textSize}px helvetica`;
+		ctx.textAlign = `center`;
+		ctx.textBaseline = `middle`;
+
+		const measure = ctx.measureText(state.btnText);
+
+		if (measure.width > (btn.w * 0.9))
+		{
+			state.textSize = ((btn.w * 0.9) / measure.width) * state.textSize;
+			ctx.font = `${state.textSize}px helvetica`;
+		}
+
+		const particles = [];
+
+		/**
+		 * posx - float 0 - 1 x starting coordinate
+		 * posy - float 0 - 1 y starting coordinate
+		 */
+		function addParticle(posx, posy)
+		{
+			// x velocity
+			const x = Math.floor(Math.random() * 1000) * Math.pow(10, 14 - 3);
+			// y velocity
+			const y = Math.floor(Math.random() * 1000) * Math.pow(10, 14 - 6);
+			// x position
+			const dx = Math.floor(posx * 10000 - 1) * Math.pow(10, 14 - 10);
+			// y position
+			const dy = Math.floor(posy * 10000 - 1);
+
+			/**
+			 * 
+			 * Particles are stored as such
+			 * 99999999999999
+			 *           ^^^^ - dy 
+			 *       ^^^^ - dx
+			 *    ^^^ - y
+			 * ^^^ - x
+			 */
+			particles.push(x + y + dx + dy);
+		}
+
+		/**
+		 * Particles move with velocity in a particular
+		 * direction, and affected by gravity over time.
+		 */
+		function updateParticles(delta)
+		{
+			let i = 0;
+			let pLen = particles.length;
+
+			while (i < pLen)
+			{
+				const p = particles[i] * Math.pow(10, -14);
+
+				const xa = p * Math.pow(10, 3);
+				const xb = xa % 1;
+				const x = Math.floor(xa);
+
+				const ya = xb * Math.pow(10, 3);
+				const yb = ya % 1;
+				const y = Math.floor(ya);
+
+				const dxa = yb * Math.pow(10, 4);
+				const dxb = dxa % 1;
+				let dx = Math.floor(dxa);
+
+				const dya = dxb * Math.pow(10, 4);
+				let dy = Math.floor(dya);
+
+				// gravity
+				const newy = Math.max(0, Math.floor(y - 9.8 * 0.01 * (delta)));
+
+				dx = Math.floor(dx + (x - (0.5 * Math.pow(10, 3))) * 0.3);
+				dy = Math.floor(dy + (y - (0.5 * Math.pow(10, 3))) * 0.3);
+
+				// particle is now outside of the frame
+				if (dx <= 0 || dx >= 9999 || dy <= 0 || dy >= 9999)
+				{
+					const s = particles[pLen - 1];
+					particles[pLen - 1] = particles[i];
+					particles[i] = s;
+					pLen -= 1;
+				}
+				else
+				{
+					particles[i] = x * Math.pow(10, 14 - 3) +
+						newy * Math.pow(10, 14 - 6) +
+						dx * Math.pow(10, 14 - 10) +
+						dy;
+
+					i += 1;
+				}
+			}
+
+			if (pLen !== particles.length)
+			{
+				particles.length = pLen;
+			}
+		}
+
+		let lastTime = performance.now();
+
+		function loop(time)
+		{
+			const delta = time - lastTime;
+
+			checkMouseIntersect();
+
+			updateParticles(delta);
+
+			ctx.clearRect(0, 0, w, h);
+
+			drawButton(time, delta);
+
+			lastTime = time;
+
+			requestAnimationFrame(loop);
+		}
+
+		loop(lastTime);
+
+		function drawButton(time, delta)
+		{
+			if (btnHover())
+			{
+				const red = 80 * Math.abs(Math.sin(time * 0.002)) + 80;
+				ctx.fillStyle = `rgb(${red}, 0, 220)`;
+
+				ctx.fillRect(
+					btn.x,
+					btn.y,
+					btn.w,
+					btn.h
+				);
+			}
+
+			drawrain(delta);
+			drawparticles(delta);
+
+			ctx.fillStyle = `#aacc22`;
+
+			ctx.fillRect(
+				btn.x - (btnHover() ? 4 : state.mousedown ? -1 : 0),
+				btn.y - (btnHover() ? 4 : state.mousedown ? -1 : 0),
+				btn.w - (state.mousedown ? 2 : 0),
+				btn.h - (state.mousedown ? 2 : 0)
+			);
+
+			if (state.mousedown)
+			{
+				ctx.strokeStyle = `#0f5c7f`;
+				ctx.lineWidth = 2;
+
+				ctx.strokeRect(
+					btn.x - 1,
+					btn.y - 1,
+					btn.w + 2,
+					btn.h + 3
+				)
+			}
+
+			ctx.fillStyle = `#232323`;
+
+			ctx.fillText(
+				state.btnText, 
+				btn.x + (btn.w * 0.5) - (btnHover() ? 4 : 0), 
+				btn.y + (btn.h * 0.5) - (btnHover() ? 4 : 0)
+			);
+		}
+
+		function drawrain(delta)
+		{
+			const p_h = 8;
+
+			const p_min = btn.y + btn.h - p_h - 8;
+
+			const p_max = h;
+
+			const p_int = (btn.w - btn.x) / rain.length;
+
+			for (let i = 0; i < rain.length; i += 1)
+			{
+				let p = rain[i];
+
+				p = state.mouseover
+					? Math.max(p - (delta * 0.3), -20)
+					: p + (delta * 0.1) * Math.max(0.5, Math.abs(Math.cos(i)) + 0.1);
+
+				if (p > p_max)
+				{
+					p = pPosition();
+				}
+				else if (p > p_min)
+				{
+					const d = 1 - ((p + p_h - p_min) / (h - p_min));
+
+					ctx.fillStyle = `rgba(170, 204, 34, ${d})`;
+
+					ctx.fillRect(
+						btn.x + (p_int * 1.5) + (p_int * i),
+						p,
+						2,
+						p_h * (state.mouseover ? 2 : 1)
+					);
+				}
+
+				rain[i] = p;
+			}
+		}
+
+		function drawparticles(delta)
+		{
+			for (let i = 0; i < particles.length; i += 1)
+			{
+				const p = particles[i] * Math.pow(10, -8) % 1;
+				const dxa = p * Math.pow(10, 4);
+				const dx = Math.floor(dxa) * Math.pow(10, -4);
+				const dy = 1 - (dxa % 1);
+
+				// distance formula (distance from center)
+				const d = Math.sqrt(
+					Math.pow(0.5 - dx, 2) + 
+					Math.pow(0.5 - dy, 2));
+
+				ctx.fillStyle = `rgba(44, 50, 94, ${1 - d / 0.5})`;
+				ctx.fillRect( w * dx, h * dy, 4, 4 );
+			}
+		}
+
+		function btnHover()
+		{
+			return state.mouseover && !state.mousedown;
+		}
+	</script>
+</body>
+</html>
